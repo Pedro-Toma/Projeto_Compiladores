@@ -1,8 +1,15 @@
+// LEXICO
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h> // strncpy
 #include <stdlib.h> // atof
+#include <math.h> // pow (conversao hexadecimal -> decimal)
 
+// SINTATICO
+#include <stdio.h>
+#include <stdlib.h>
+
+// DECLARACOES LEXICO 
 // definicoes dos atomos
 typedef enum{
     EOS,
@@ -38,8 +45,7 @@ typedef enum{
     MINUS,
     MULT,
     DIV,
-    ONE_LINE_COMMENT,
-    MULT_LINES_COMMENT
+    COMMENT
 } TAtomo;
 
 typedef struct{
@@ -47,8 +53,11 @@ typedef struct{
     int linha;
     char atributo_numero_hex[20];
     char atributo_ID[16];
+    char caracter_const;
+    int numero_const;
 } TInfoAtomo;
 
+// declaracao de variaveis globais
 char *strAtomo[]={"EOS","ERRO","VOID","MAIN","INT","CHAR","ID","READINT",
 "WRITEINT","IF","ELSE","WHILE","INTCONST","CHARCONST","OPEN_PAR",
 "CLOSE_PAR","OPEN_CURLY_BRACES","CLOSE_CURLY_BRACES","COMMA",
@@ -61,7 +70,36 @@ char *entrada = "void main ( void ) {\n\twriteint(maior ; }\n";
 // declaracao da funcao
 TInfoAtomo obter_atomo();
 TInfoAtomo reconhece_reserv_id();
+TInfoAtomo reconhece_const();
 TInfoAtomo reconhece_terminais();
+// FIM DAS DECLARACOES DO LEXICO
+
+// DECLARACOES SINTATICO
+// variavel global
+TAtomo lookahead;
+TInfoAtomo info_atomo;
+
+// SINTATICO - prototipacao de funcao
+void program();
+void compound_stmt();
+void var_decl();
+void type_specifier();
+void var_decl_list();
+void variable_id();
+void stmt();
+void assig_stmt();
+void cond_stmt();
+void while_stmt();
+void expr();
+void conjunction();
+void comparison();
+void relation();
+void sum();
+void term();
+void factor();
+void consome( TAtomo atomo );
+
+// FIM DECLARACOES SINTATICO
 
 int main(void){
     TInfoAtomo info_atm;
@@ -75,7 +113,7 @@ int main(void){
     printf("fim de analise lexica\n");
 }
 
-// implementacao da funcao
+// IMPLEMENTACAO LEXICO
 TInfoAtomo obter_atomo(){
     TInfoAtomo info_atomo;
 
@@ -91,14 +129,27 @@ TInfoAtomo obter_atomo(){
         entrada++;
     }
     if(*entrada == '\0'){
+        entrada++;
         info_atomo.atomo = EOS;
     } else if(*entrada == '/' && *(entrada+1) == '/'){
-        info_atomo.atomo = ONE_LINE_COMMENT;
-    } else if(*entrada == '*' && *(entrada+1) == '/'){
-        info_atomo.atomo = MULT_LINES_COMMENT; 
+        entrada +=2 ;
+        while (*entrada != '\n'){
+            reconhece_terminais();
+        }
+        entrada++;
+        info_atomo.atomo = COMMENT;
+    } else if(*entrada == '/' && *(entrada+1) == '*'){
+        entrada += 2;
+        while (*entrada != '*' && *(entrada+1) == '/'){
+            reconhece_terminais();
+        }
+        entrada += 2;
+        info_atomo.atomo = COMMENT; 
     } else if(isalpha(*entrada)){
         info_atomo = reconhece_reserv_id();
-    } else {
+    } else if(*entrada == '\'' || *entrada == '0'){
+        info_atomo = reconhece_const();
+    } else{
         info_atomo = reconhece_terminais();
     }
     
@@ -131,10 +182,8 @@ q1:
     strncpy(palavra, entrada, 2);
     palavra[2] = '\0';
     if(strcmp(palavra, "if") == 0){
-        for(int i = 0; i < 2; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 2;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 3;
             goto q2;
@@ -147,10 +196,8 @@ q1:
     strncpy(palavra, entrada, 3);
     palavra[3] = '\0';
     if(strcmp(palavra, "int") == 0){
-        for(int i = 0; i < 3; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 3;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 4;
             goto q2;
@@ -164,10 +211,8 @@ q1:
     palavra[4] = '\0';
     if(strcmp(palavra, "char") == 0 || strcmp(palavra, "else") == 0 || 
        strcmp(palavra, "main") == 0 || strcmp(palavra, "void") == 0){
-        for(int i = 0; i < 4; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 4;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 5;
             goto q2;
@@ -189,10 +234,8 @@ q1:
     strncpy(palavra, entrada, 5);
     palavra[5] = '\0';
     if(strcmp(palavra, "while") == 0){
-        for(int i = 0; i < 5; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 5;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 6;
             goto q2;
@@ -207,10 +250,8 @@ q1:
     strncpy(palavra, entrada, 7);
     palavra[7] = '\0';
     if(strcmp(palavra, "readint") == 0){
-        for(int i = 0; i < 7; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 7;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 8;
             goto q2;
@@ -225,10 +266,8 @@ q1:
     strncpy(palavra, entrada, 8);
     palavra[8] = '\0';
     if(strcmp(palavra, "writeint") == 0){
-        for(int i = 0; i < 8; i++){
-            entrada++;
-        }
-        if(isalpha(*entrada) || *entrada == '_'){
+        entrada += 8;
+        if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 9;
             goto q2;
@@ -254,6 +293,69 @@ q2:
     info_reserv_id.atomo = ID;
 
     return info_reserv_id;
+}
+
+TInfoAtomo reconhece_const(){
+    TInfoAtomo info_id;
+    info_id.atomo = ERRO;
+    char *ini_num;
+    char hexa[16];
+
+    if(*entrada == '\'' && isalpha(*(entrada+1)) && *(entrada+2) == '\''){
+        info_id.atomo = CHARCONST;
+        info_id.caracter_const = *(entrada+1);
+        entrada += 3;
+    } if (*entrada == '0' && *(entrada+1) == 'x'){
+        entrada += 2;
+        if (*entrada == 'A' ||
+            *entrada == 'B' ||
+            *entrada == 'C' ||
+            *entrada == 'D' ||
+            *entrada == 'E' ||
+            *entrada == 'F' ||
+            isdigit(*entrada)){
+            ini_num = entrada;
+            entrada++;
+            int posicao = 0;
+            info_id.atomo = INTCONST;
+            while(*entrada == 'A' ||
+                *entrada == 'B' ||
+                *entrada == 'C' ||
+                *entrada == 'D' ||
+                *entrada == 'E' ||
+                *entrada == 'F' ||
+                isdigit(*entrada)){
+                entrada++;
+                posicao++;
+            }
+            strncpy(hexa,ini_num,entrada - ini_num);
+            hexa[entrada - ini_num]='\0';
+            int i = 0;
+            int decimal = 0;
+            int representacao;
+            while(hexa[i] != '\0'){
+                if (hexa[i] == 'A'){
+                    representacao = 10;
+                } else if (hexa[i] == 'B'){
+                    representacao = 11;
+                } else if (hexa[i] == 'C'){
+                    representacao = 12;
+                } else if (hexa[i] == 'D'){
+                    representacao = 13;
+                } else if (hexa[i] == 'E'){
+                    representacao = 14;
+                } else if (hexa[i] == 'F'){
+                    representacao = 15;
+                } else {
+                    representacao = hexa[i];
+                }
+                decimal += representacao * pow(16,posicao);
+                posicao--;
+            }
+            info_id.numero_const = decimal;
+        }   
+    }
+    return info_id;
 }
 
 TInfoAtomo reconhece_terminais(){
@@ -310,3 +412,218 @@ TInfoAtomo reconhece_terminais(){
 
     return info_id;
 }
+// FIM IMPLEMENTACAO LEXICO
+
+// IMPLEMENTACAO SINTATICO
+
+// <program> ::= void main ‘(‘ void ‘)’ <compound_stmt>
+void program(){
+    consome(VOID);
+    consome(MAIN);
+    consome(OPEN_PAR);
+    consome(VOID);
+    consome(CLOSE_PAR);
+    compound_stmt();
+}
+
+// <compound_stmt> ::= ‘{‘ <var_decl> { <stmt> } ‘}’
+void compound_stmt(){
+    consome(OPEN_CURLY_BRACES);
+    var_decl();
+    while(lookahead == OPEN_CURLY_BRACES ||
+          lookahead == ID ||
+          lookahead == IF ||
+          lookahead == WHILE ||
+          lookahead == READINT ||
+          lookahead == WRITEINT){
+        stmt();
+    }
+    consome(CLOSE_CURLY_BRACES);
+}
+
+// <var_decl> ::= [ <type_specifier> <var_decl_list> ‘;’ ]
+void var_decl(){
+    if(lookahead == INT){
+        type_specifier();
+        var_decl_list();
+        consome(SEMICOLON);
+    }
+}
+
+// <type_specifier> ::= int | char
+void type_specifier(){
+    if(lookahead == INT){
+        consome(INT);
+    } else{
+        consome(CHAR);
+    }
+}
+
+// <var_decl_list> ::= <variable_id> { ‘,’ <variable_id> }
+void var_decl_list(){
+    variable_id();
+    while(lookahead == COMMA){
+        consome(COMMA);
+        variable_id();
+    }
+}
+
+// <variable_id> ::= id [ ‘=’ <expr> ]
+void variable_id(){
+    consome(ID);
+    if (lookahead == ATTRIBUTION){
+        consome(ATTRIBUTION);
+        expr();
+    }
+}
+
+/* <stmt> ::= <compound_stmt> |
+              <assig_stmt> |
+              <cond_stmt> |
+              <while_stmt> |
+              readint ‘(‘ id ‘)’ ‘;’ |
+              writeint ‘(‘ <expr> ‘)’ ‘;’ |
+*/
+void stmt(){
+    if(lookahead == OPEN_CURLY_BRACES){
+        compound_stmt();
+    } else if (lookahead == ID){
+        assig_stmt();
+    } else if (lookahead == IF){
+        cond_stmt();
+    } else if (lookahead == WHILE){
+        while_stmt();
+    } else if (lookahead == READINT){
+        consome(READINT);
+        consome(OPEN_PAR);
+        consome(ID);
+        consome(CLOSE_PAR);
+        consome(SEMICOLON);
+    } else{
+        consome(WRITEINT);
+        consome(OPEN_PAR);
+        expr();
+        consome(CLOSE_PAR);
+        consome(SEMICOLON);
+    }
+}
+
+// <assig_stmt> ::= id ‘=’ <expr> ‘;’ 
+void assig_stmt(){
+    consome(ID);
+    consome(ATTRIBUTION);
+    expr();
+    consome(SEMICOLON);
+}
+
+// <cond_stmt> ::= if ‘(‘ <expr> ‘)’ <stmt> [ else <stmt> ]
+void cond_stmt(){
+    consome(IF);
+    consome(OPEN_PAR);
+    expr();
+    consome(CLOSE_PAR);
+    stmt();
+    if (lookahead == ELSE){
+        consome(ELSE);
+        stmt();
+    }
+}
+
+// <while_stmt> ::= while ‘(‘ <expr> ‘)’ <stmt>
+void while_stmt(){
+    consome(WHILE);
+    consome(OPEN_PAR);
+    expr();
+    consome(CLOSE_PAR);
+    stmt();
+}
+
+// <expr> ::= <conjunction> { ‘||’ <conjunction> }
+void expr(){
+    conjunction();
+    while(lookahead == OR){
+        consome(OR);
+        conjunction();
+    }
+}
+
+// <conjunction> ::= <comparison> { ‘&&’ <comparison> }
+void conjunction(){
+    comparison();
+    while(lookahead == AND){
+        consome(AND);
+        comparison();
+    }
+}
+
+// <comparison> ::= <sum> [ <relation> <sum> ] 
+void comparison(){
+    sum();
+    if (lookahead == GREATER       ||
+        lookahead == GREATER_EQUAL ||
+        lookahead == EQUAL         ||
+        lookahead == DIFFERENT     ||
+        lookahead == LESS          ||
+        lookahead == LESS_EQUAL){
+        relation();
+        sum();
+    }
+}
+
+// <relation> ::= “<” | “<=” | “==” | “!=” | “>” | “>=”
+void relation(){
+    if (lookahead == GREATER       ||
+        lookahead == GREATER_EQUAL ||
+        lookahead == EQUAL         ||
+        lookahead == DIFFERENT     ||
+        lookahead == LESS){
+        consome(lookahead);
+    }else{
+        consome(LESS_EQUAL);
+    }
+}
+
+// <sum> ::= <term> { (‘+’ | ‘-’) <term> }
+void sum(){
+    term();
+    while(lookahead == PLUS || lookahead == MINUS){
+        consome(lookahead);
+        term();
+    }
+}
+
+// <term> ::= <factor> { ( ‘*’ | ‘/’ ) <factor> }
+void term(){
+    factor();
+    while(lookahead == MULT || lookahead == DIV){
+        consome(lookahead);
+        factor();
+    }
+}
+
+// <factor> ::= intconst | charconst | id | ‘(‘ <expr> ‘)’
+void factor(){
+    if (lookahead == INTCONST ||
+        lookahead == CHARCONST ||
+        lookahead == ID){
+        consome(lookahead);
+    }else{
+        consome(OPEN_PAR);
+        expr();
+        consome(CLOSE_PAR);
+    }
+}
+
+void consome( TAtomo atomo ){
+    if( lookahead == atomo ){
+        
+        info_atomo = obter_atomo();
+        lookahead = info_atomo.atomo;
+    }
+    else{
+        printf("\nErro sintatico: esperado [%s] encontrado [%s]\n",strAtomo[atomo],strAtomo[lookahead]);
+        exit(1);
+    }
+}
+
+// FIM IMPLEMENTACAO SINTATICO
