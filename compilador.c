@@ -1,3 +1,8 @@
+/*
+Gabriel Fuentes de Freitas Yamashita - 10408876
+Pedro Akira Cardoso Toma - 10390171
+*/
+
 // LEXICO
 #include <stdio.h>
 #include <ctype.h>
@@ -13,7 +18,7 @@
 // definicoes dos atomos
 typedef enum{
     EOS,
-    ERRO,
+    ERROR,
     VOID,
     MAIN,
     INT,
@@ -51,21 +56,20 @@ typedef enum{
 typedef struct{
     TAtomo atomo;
     int linha;
-    char atributo_numero_hex[20];
     char atributo_ID[16];
     char caracter_const;
     int numero_const;
 } TInfoAtomo;
 
 // declaracao de variaveis globais
-char *strAtomo[]={"EOS","ERRO","VOID","MAIN","INT","CHAR","ID","READINT",
+char *strAtomo[]={"EOS","ERROR","VOID","MAIN","INT","CHAR","ID","READINT",
 "WRITEINT","IF","ELSE","WHILE","INTCONST","CHARCONST","OPEN_PAR",
 "CLOSE_PAR","OPEN_CURLY_BRACES","CLOSE_CURLY_BRACES","COMMA",
 "SEMICOLON","ATTRIBUTION","AND","OR","LESS","LESS_EQUAL","EQUAL",
 "DIFFERENT","GREATER","GREATER_EQUAL","PLUS","MINUS","MULT","DIV",
-"ONE_LINE_COMMENT","MULT_LINES_COMMENT"};
+"COMMENT"};
 int contaLinha = 1;
-char *entrada = "void main ( void ) {\n\twriteint(maior ; }\n";
+char *entrada;
 
 // declaracao da funcao
 TInfoAtomo obter_atomo();
@@ -101,24 +105,35 @@ void consome( TAtomo atomo );
 
 // FIM DECLARACOES SINTATICO
 
+// DECLARACAO FUNCAO MAIN (LEITURA DE ARQUIVO)
+char* lerArquivo(char nome_arquivo[20]);
+
+// FIM DECLARACAO MAIN
+
 int main(void){
-    TInfoAtomo info_atm;
-    do{
-        info_atm = obter_atomo();
 
-        printf("%03d# %s ", info_atm.linha,strAtomo[info_atm.atomo]);
-        printf("\n");
+    // le arquivo
+    entrada = lerArquivo("teste.txt");
 
-    }while(info_atm.atomo != ERRO && info_atm.atomo != EOS);
-    printf("fim de analise lexica\n");
+    info_atomo = obter_atomo(); // obtem atomo inicial
+    
+    lookahead = info_atomo.atomo; // lookahead eh o atomo inicial
+
+    program(); // simbolo inicial da gramatica
+
+    consome(EOS); // consome fim do arquivo
+
+    printf("\n");
+
+    printf("%d linhas analisadas, programa sintaticamente correto\n", contaLinha);
+    return 0;
 }
 
 // IMPLEMENTACAO LEXICO
 TInfoAtomo obter_atomo(){
     TInfoAtomo info_atomo;
 
-    info_atomo.atomo = ERRO;
-
+    info_atomo.atomo = ERROR; // iniciar atomo com erro
     // eliminar delimitadores
     while(*entrada == ' '|| 
           *entrada == '\n'||
@@ -128,50 +143,68 @@ TInfoAtomo obter_atomo(){
             contaLinha++;
         entrada++;
     }
+    // identifica fim de arquivo
     if(*entrada == '\0'){
         entrada++;
         info_atomo.atomo = EOS;
+    // identifica comentario de uma linha
     } else if(*entrada == '/' && *(entrada+1) == '/'){
-        entrada +=2 ;
+        info_atomo.atomo = COMMENT;
+        info_atomo.linha = contaLinha;
+        printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
+        entrada +=2;
+
+        // loop para consumir todo comentario
         while (*entrada != '\n'){
             reconhece_terminais();
         }
         entrada++;
-        info_atomo.atomo = COMMENT;
+        contaLinha++;
+    // identifica comentarios de multiplas linhas
     } else if(*entrada == '/' && *(entrada+1) == '*'){
+        info_atomo.atomo = COMMENT; 
+        info_atomo.linha = contaLinha;
+        printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
         entrada += 2;
-        while (*entrada != '*' && *(entrada+1) == '/'){
+        // consome atomos ate o fim do comentario */
+        while (*entrada != '*' && *(entrada+1) != '/'){
+            if (*entrada == '\n'){
+                contaLinha++;
+            }
             reconhece_terminais();
         }
         entrada += 2;
-        info_atomo.atomo = COMMENT; 
+    // reconhece palavras reservadas e identificadores
     } else if(isalpha(*entrada)){
         info_atomo = reconhece_reserv_id();
+    // reconhece constantes INTCONST e CHARCONST
     } else if(*entrada == '\'' || *entrada == '0'){
         info_atomo = reconhece_const();
+    // reconhece terminais da gramatica
     } else{
         info_atomo = reconhece_terminais();
     }
-    
-    info_atomo.linha = contaLinha;
-    return info_atomo;
+
+    return info_atomo; // retorna atomo com informacoes
 }
 
 TInfoAtomo reconhece_reserv_id(){
     TInfoAtomo info_reserv_id;
-    char palavra[16];
-    char *ini_num;
-    int qtd_letras = 0;
+    char palavra[16]; // possivel atributo ID
+    char *ini_num; // inicio de possive ID
+    int qtd_letras = 0; 
 
-    info_reserv_id.atomo = ERRO;
+    info_reserv_id.atomo = ERROR;
 
-    ini_num = entrada;
+    ini_num = entrada; // comeco de possivel ID
 
+    // se for maiuscula ou underline vai para identificador (q2)
     if(isupper(*entrada) || *entrada == '_'){
         entrada++; // consome letra maiuscula ou underline
         qtd_letras++;
         goto q2;
     }
+    // se for minuscula verifica se eh palavra reservada
     if(islower(*entrada)){
         goto q1;
     }
@@ -181,13 +214,16 @@ q1:
     // reconhece palavras reservadas com 2 letras
     strncpy(palavra, entrada, 2);
     palavra[2] = '\0';
+
     if(strcmp(palavra, "if") == 0){
         entrada += 2;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 3;
             goto q2;
         }
+
         info_reserv_id.atomo = IF;
         return info_reserv_id;
     }
@@ -197,6 +233,7 @@ q1:
     palavra[3] = '\0';
     if(strcmp(palavra, "int") == 0){
         entrada += 3;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 4;
@@ -212,11 +249,13 @@ q1:
     if(strcmp(palavra, "char") == 0 || strcmp(palavra, "else") == 0 || 
        strcmp(palavra, "main") == 0 || strcmp(palavra, "void") == 0){
         entrada += 4;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 5;
             goto q2;
         }
+        // verifica qual palavra reservada de 4 letras eh a correta
         if(strcmp(palavra, "char") == 0){
             info_reserv_id.atomo = CHAR;
         } else if(strcmp(palavra, "else") == 0){
@@ -235,6 +274,7 @@ q1:
     palavra[5] = '\0';
     if(strcmp(palavra, "while") == 0){
         entrada += 5;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 6;
@@ -251,6 +291,7 @@ q1:
     palavra[7] = '\0';
     if(strcmp(palavra, "readint") == 0){
         entrada += 7;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 8;
@@ -267,6 +308,7 @@ q1:
     palavra[8] = '\0';
     if(strcmp(palavra, "writeint") == 0){
         entrada += 8;
+        // se proximo caractere for underline ou digito, vai para ID (q2)
         if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada)){
             entrada++; // consome letra maiuscula ou underline
             qtd_letras += 9;
@@ -279,34 +321,40 @@ q1:
     }
 
 q2:
+    // verifica se o ID passou de 15 letras
     if(qtd_letras > 15){
         return info_reserv_id;
     }
+    // se proximo caractere for letra, underline ou digito continua lendo ID (q2)
     if(isalpha(*entrada) || *entrada == '_' || isdigit(*entrada) ){
         entrada++;// consome letra minuscula
         qtd_letras++;
         goto q2;
     }
-    palavra[entrada - ini_num] = '\0';
+
+    // copia ID para atributo ID
     strncpy(info_reserv_id.atributo_ID,ini_num,entrada - ini_num);
-
+    palavra[entrada - ini_num] = '\0'; // insere '\0' ao final da palavra
     info_reserv_id.atomo = ID;
-
+    
     return info_reserv_id;
 }
 
 TInfoAtomo reconhece_const(){
     TInfoAtomo info_id;
-    info_id.atomo = ERRO;
+    info_id.atomo = ERROR;
     char *ini_num;
     char hexa[16];
 
+    // verifica se eh um CHARCONST 
     if(*entrada == '\'' && isalpha(*(entrada+1)) && *(entrada+2) == '\''){
         info_id.atomo = CHARCONST;
         info_id.caracter_const = *(entrada+1);
         entrada += 3;
+    // verifica se eh um INTCONST (hexadecimal)
     } if (*entrada == '0' && *(entrada+1) == 'x'){
         entrada += 2;
+        // se nao for A,B,C,D,E,F, digito retorna erro
         if (*entrada == 'A' ||
             *entrada == 'B' ||
             *entrada == 'C' ||
@@ -316,7 +364,7 @@ TInfoAtomo reconhece_const(){
             isdigit(*entrada)){
             ini_num = entrada;
             entrada++;
-            int posicao = 0;
+            int posicao = 0; // verifica posicao para calculo posterior
             info_id.atomo = INTCONST;
             while(*entrada == 'A' ||
                 *entrada == 'B' ||
@@ -328,11 +376,14 @@ TInfoAtomo reconhece_const(){
                 entrada++;
                 posicao++;
             }
+
+            // pega constante INTCONST
             strncpy(hexa,ini_num,entrada - ini_num);
             hexa[entrada - ini_num]='\0';
             int i = 0;
             int decimal = 0;
             int representacao;
+            // verfica letra e sua representacao
             while(hexa[i] != '\0'){
                 if (hexa[i] == 'A'){
                     representacao = 10;
@@ -349,6 +400,7 @@ TInfoAtomo reconhece_const(){
                 } else {
                     representacao = hexa[i];
                 }
+                // calcula decimal
                 decimal += representacao * pow(16,posicao);
                 posicao--;
             }
@@ -360,8 +412,9 @@ TInfoAtomo reconhece_const(){
 
 TInfoAtomo reconhece_terminais(){
     TInfoAtomo info_id;
-    info_id.atomo = ERRO;
+    info_id.atomo = ERROR;
 
+    // reconhce todos os terminais da gramatica
     if(*entrada == '(')
         info_id.atomo = OPEN_PAR;
     if(*entrada == ')')
@@ -461,7 +514,7 @@ void type_specifier(){
 
 // <var_decl_list> ::= <variable_id> { ‘,’ <variable_id> }
 void var_decl_list(){
-    variable_id();
+    variable_id(); // identificador
     while(lookahead == COMMA){
         consome(COMMA);
         variable_id();
@@ -615,15 +668,80 @@ void factor(){
 }
 
 void consome( TAtomo atomo ){
+    // se for comentario obtem proximo atomo e atualiza lookahead
+    if( lookahead == COMMENT){
+        info_atomo = obter_atomo();
+        // consome(info_atomo.atomo);
+        lookahead = info_atomo.atomo;
+    }
+    // se for igual ao atomo a ser consumido
     if( lookahead == atomo ){
-        
+        info_atomo.linha = contaLinha;
+        // print para variaveis com valores adicionais
+        if (lookahead == ID){
+            printf("# %3d: %s | %s\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.atributo_ID);
+        } else if (lookahead == INTCONST){
+            printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.numero_const);
+        } else if (lookahead == CHARCONST){
+            printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.caracter_const);
+        } else{
+            printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
+        }
+        // obtem proximo atomo e atualiza lookahead
         info_atomo = obter_atomo();
         lookahead = info_atomo.atomo;
     }
+    // se nao for o atomo a ser consumido, gera erro
     else{
-        printf("\nErro sintatico: esperado [%s] encontrado [%s]\n",strAtomo[atomo],strAtomo[lookahead]);
+        printf("# %3d: Erro sintatico: esperado [%s] encontrado [%s]\n", contaLinha, strAtomo[atomo],strAtomo[lookahead]);
         exit(1);
     }
 }
 
 // FIM IMPLEMENTACAO SINTATICO
+
+// IMPLEMENTACAO DE LEITURA DE ARQUIVO
+char* lerArquivo(char nome_arquivo[20]){
+    FILE *arquivo;
+    char nome[100];
+
+    // recebe nome de arquivo a ser lido
+    printf("Digite o arquivo a ser lido: ");
+    scanf("%s",nome);
+
+    arquivo = fopen(nome,"r"); // abre arquivo em modo leitura
+
+    // verifica se eh possivel ler arquivo
+    if (arquivo == NULL){
+        printf("Erro ao abrir o arquivo \"teste.txt\".");
+        return NULL;
+    }
+
+    int tamanho_arquivo;
+
+    fseek(arquivo, 0, SEEK_END); // vai até o final do arquivo
+    tamanho_arquivo = ftell(arquivo); // retorna posição atual do ponteiro (no fim do arquivo)
+
+    rewind(arquivo); // volta o ponteiro para o comeco do arquivo
+
+    char* conteudo;
+
+    // aloca espaço para o conteudo do arquivo (tamanho do arquivo + EOS)
+    conteudo = (char*) malloc(tamanho_arquivo+1);
+
+    char caractere;
+    int i = 0;
+
+    // le cada caractere ate o final do arquivo
+    while((caractere = fgetc(arquivo)) != EOF){
+        conteudo[i] = caractere; // guarda o caractere na string conteudo
+        i++; // move uma posição na string conteudo
+    }
+    conteudo[i] = '\0'; // armazena EOS
+
+    fclose(arquivo);
+
+    return conteudo;
+}
+
+// FIM DA IMPLEMENTACAO DE LEITURA DE ARQUIVO
