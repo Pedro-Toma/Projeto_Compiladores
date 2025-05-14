@@ -156,7 +156,7 @@ TInfoAtomo obter_atomo(){
 
         // loop para consumir todo comentario
         while (*entrada != '\n'){
-            reconhece_terminais();
+            entrada++;
         }
         entrada++;
         contaLinha++;
@@ -171,7 +171,7 @@ TInfoAtomo obter_atomo(){
             if (*entrada == '\n'){
                 contaLinha++;
             }
-            reconhece_terminais();
+            entrada++;
         }
         entrada += 2;
     // reconhece palavras reservadas e identificadores
@@ -669,11 +669,11 @@ void factor(){
 
 void consome( TAtomo atomo ){
     // se for comentario obtem proximo atomo e atualiza lookahead
-    if( lookahead == COMMENT){
-        info_atomo = obter_atomo();
-        // consome(info_atomo.atomo);
-        lookahead = info_atomo.atomo;
-    }
+    // if ( lookahead == COMMENT){
+    //     info_atomo = obter_atomo();
+    //     // consome(info_atomo.atomo);
+    //     lookahead = info_atomo.atomo;
+    // }
     // se for igual ao atomo a ser consumido
     if( lookahead == atomo ){
         info_atomo.linha = contaLinha;
@@ -690,6 +690,10 @@ void consome( TAtomo atomo ){
         // obtem proximo atomo e atualiza lookahead
         info_atomo = obter_atomo();
         lookahead = info_atomo.atomo;
+        if ( lookahead == COMMENT){
+            info_atomo = obter_atomo();
+            lookahead = info_atomo.atomo;
+        }
     }
     // se nao for o atomo a ser consumido, gera erro
     else{

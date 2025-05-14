@@ -1,10 +1,10 @@
-/*
-programa le dois numeros inteiros e encontra o maior
-*/
 void main ( void ) {
 int num_1, num_2, maior;
 readint(num_1);
 readint(num_2);
+/*
+programa le dois numeros inteiros e encontra o maior
+*/
 if ( num_1 > num_2 )
  maior = num_1;
 else
