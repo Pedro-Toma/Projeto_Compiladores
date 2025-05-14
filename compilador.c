@@ -669,11 +669,11 @@ void factor(){
 
 void consome( TAtomo atomo ){
     // se for comentario obtem proximo atomo e atualiza lookahead
-    // if ( lookahead == COMMENT){
-    //     info_atomo = obter_atomo();
-    //     // consome(info_atomo.atomo);
-    //     lookahead = info_atomo.atomo;
-    // }
+    if ( lookahead == COMMENT){
+        info_atomo = obter_atomo();
+        // consome(info_atomo.atomo);
+        lookahead = info_atomo.atomo;
+    }
     // se for igual ao atomo a ser consumido
     if( lookahead == atomo ){
         info_atomo.linha = contaLinha;

@@ -1,3 +1,6 @@
+/*
+programa le dois numeros inteiros e encontra o maior
+*/
 void main ( void ) {
 int num_1, num_2, maior;
 readint(num_1);
@@ -11,3 +14,6 @@ else
  maior = num_2;
 writeint(maior); // imprime o maior valor
 }
+/*
+programa le dois numeros inteiros e encontra o maior
+*/
