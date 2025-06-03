@@ -9,6 +9,7 @@ Pedro Akira Cardoso Toma - 10390171
 #include <string.h> // strncpy
 #include <stdlib.h> // atof
 #include <math.h> // pow (conversao hexadecimal -> decimal)
+#include <ctype.h> // verificar se caractere é ASCII
 
 // SINTATICO
 #include <stdio.h>
@@ -106,14 +107,14 @@ void consome( TAtomo atomo );
 // FIM DECLARACOES SINTATICO
 
 // DECLARACAO FUNCAO MAIN (LEITURA DE ARQUIVO)
-char* lerArquivo(char nome_arquivo[20]);
+char* lerArquivo(char nome_arquivo[100]);
 
 // FIM DECLARACAO MAIN
 
-int main(void){
+int main(int argc, char *argv[]){
 
     // le arquivo
-    entrada = lerArquivo("teste.txt");
+    entrada = lerArquivo(argv[1]);
 
     info_atomo = obter_atomo(); // obtem atomo inicial
     
@@ -167,7 +168,7 @@ TInfoAtomo obter_atomo(){
         printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
         entrada += 2;
         // consome atomos ate o fim do comentario */
-        while (*entrada != '*' && *(entrada+1) != '/'){
+        while (!(*entrada == '*' && *(entrada+1) == '/')){
             if (*entrada == '\n'){
                 contaLinha++;
             }
@@ -333,8 +334,9 @@ q2:
     }
 
     // copia ID para atributo ID
-    strncpy(info_reserv_id.atributo_ID,ini_num,entrada - ini_num);
-    palavra[entrada - ini_num] = '\0'; // insere '\0' ao final da palavra
+    int tamanho = entrada - ini_num;
+    strncpy(info_reserv_id.atributo_ID,ini_num,tamanho);
+    info_reserv_id.atributo_ID[tamanho] = '\0'; // insere '\0' ao final da palavra
     info_reserv_id.atomo = ID;
     
     return info_reserv_id;
@@ -345,9 +347,8 @@ TInfoAtomo reconhece_const(){
     info_id.atomo = ERROR;
     char *ini_num;
     char hexa[16];
-
     // verifica se eh um CHARCONST 
-    if(*entrada == '\'' && isalpha(*(entrada+1)) && *(entrada+2) == '\''){
+    if(*entrada == '\'' && isascii(*(entrada+1)) && *(entrada+2) == '\''){
         info_id.atomo = CHARCONST;
         info_id.caracter_const = *(entrada+1);
         entrada += 3;
@@ -378,13 +379,14 @@ TInfoAtomo reconhece_const(){
             }
 
             // pega constante INTCONST
-            strncpy(hexa,ini_num,entrada - ini_num);
-            hexa[entrada - ini_num]='\0';
+            int tamanho = entrada - ini_num;
+            strncpy(hexa,ini_num,tamanho);
+            hexa[tamanho]='\0';
             int i = 0;
             int decimal = 0;
             int representacao;
             // verfica letra e sua representacao
-            while(hexa[i] != '\0'){
+            while(tamanho > i){
                 if (hexa[i] == 'A'){
                     representacao = 10;
                 } else if (hexa[i] == 'B'){
@@ -398,10 +400,11 @@ TInfoAtomo reconhece_const(){
                 } else if (hexa[i] == 'F'){
                     representacao = 15;
                 } else {
-                    representacao = hexa[i];
+                    representacao = hexa[i] - '0'; // subtrai ASCII de hexa[i] por ASCII de '0' para obter número
                 }
                 // calcula decimal
                 decimal += representacao * pow(16,posicao);
+                i++;
                 posicao--;
             }
             info_id.numero_const = decimal;
@@ -415,54 +418,61 @@ TInfoAtomo reconhece_terminais(){
     info_id.atomo = ERROR;
 
     // reconhce todos os terminais da gramatica
-    if(*entrada == '(')
+    if(*entrada == '('){
         info_id.atomo = OPEN_PAR;
-    if(*entrada == ')')
+        entrada++;
+    } else if(*entrada == ')'){
         info_id.atomo = CLOSE_PAR;
-    if(*entrada == '{')
+        entrada++;
+    } else if(*entrada == '{'){
         info_id.atomo = OPEN_CURLY_BRACES;
-    if(*entrada == '}')
+        entrada++;
+    } else if(*entrada == '}'){
         info_id.atomo = CLOSE_CURLY_BRACES;
-    if(*entrada == ';')
+        entrada++;
+    } else if(*entrada == ';'){
         info_id.atomo = SEMICOLON;
-    if(*entrada == ',')
+        entrada++;
+    } else if(*entrada == ','){
         info_id.atomo = COMMA;
-    if(*entrada == '|' && *(entrada+1) == '|'){
         entrada++;
+    } else if(*entrada == '|' && *(entrada+1) == '|'){
         info_id.atomo = OR;
-    }
-    if(*entrada == '&' && *(entrada+1) == '&'){
-        entrada++;
+        entrada+=2;
+    } else if(*entrada == '&' && *(entrada+1) == '&'){
         info_id.atomo = AND;
-    }
-    if(*entrada == '=' && *(entrada+1) == '='){
-        entrada++;
+        entrada+=2;
+    } else if(*entrada == '=' && *(entrada+1) == '='){
         info_id.atomo = EQUAL;
-    }
-    if(*entrada == '=')
+        entrada+=2;
+    } else if(*entrada == '='){
         info_id.atomo = ATTRIBUTION;
-    if(*entrada == '>' && *(entrada+1) == '='){
         entrada++;
+    } else if(*entrada == '>' && *(entrada+1) == '='){
         info_id.atomo = GREATER_EQUAL;
-    }    
-    if(*entrada == '>')
+        entrada+=2;
+    } else if(*entrada == '>'){
         info_id.atomo = GREATER;
-    if(*entrada == '<' && *(entrada+1) == '='){
         entrada++;
+    } else if(*entrada == '<' && *(entrada+1) == '='){
+        entrada+=2;
         info_id.atomo = LESS_EQUAL;
-    }    
-    if(*entrada == '<')
+    } else if(*entrada == '<'){
         info_id.atomo = LESS;
-    if(*entrada == '+')
+        entrada++;
+    } else if(*entrada == '+'){
         info_id.atomo = PLUS;
-    if(*entrada == '-')
+        entrada++;
+    } else if(*entrada == '-'){
         info_id.atomo = MINUS;
-    if(*entrada == '*')
+        entrada++;
+    } else if(*entrada == '*'){
         info_id.atomo = MULT;
-    if(*entrada == '/')
+        entrada++;
+    } else if(*entrada == '/'){
         info_id.atomo = DIV;
-    entrada++;
-
+        entrada++;
+    }
     return info_id;
 }
 // FIM IMPLEMENTACAO LEXICO
@@ -669,7 +679,7 @@ void factor(){
 
 void consome( TAtomo atomo ){
     // se for comentario obtem proximo atomo e atualiza lookahead
-    if ( lookahead == COMMENT){
+    while ( lookahead == COMMENT){
         info_atomo = obter_atomo();
         // consome(info_atomo.atomo);
         lookahead = info_atomo.atomo;
@@ -683,7 +693,7 @@ void consome( TAtomo atomo ){
         } else if (lookahead == INTCONST){
             printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.numero_const);
         } else if (lookahead == CHARCONST){
-            printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.caracter_const);
+            printf("# %3d: %s | %c\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.caracter_const);
         } else{
             printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
         }
@@ -705,15 +715,10 @@ void consome( TAtomo atomo ){
 // FIM IMPLEMENTACAO SINTATICO
 
 // IMPLEMENTACAO DE LEITURA DE ARQUIVO
-char* lerArquivo(char nome_arquivo[20]){
+char* lerArquivo(char nome_arquivo[100]){
     FILE *arquivo;
-    char nome[100];
 
-    // recebe nome de arquivo a ser lido
-    printf("Digite o arquivo a ser lido: ");
-    scanf("%s",nome);
-
-    arquivo = fopen(nome,"r"); // abre arquivo em modo leitura
+    arquivo = fopen(nome_arquivo,"r"); // abre arquivo em modo leitura
 
     // verifica se eh possivel ler arquivo
     if (arquivo == NULL){
