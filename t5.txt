@@ -1,4 +1,0 @@
-program t5;
-begin
-  write(a)
-end.
