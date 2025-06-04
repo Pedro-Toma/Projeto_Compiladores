@@ -93,7 +93,6 @@ TInfoAtomo reconhece_terminais();
 // variavel global
 TAtomo lookahead;
 TInfoAtomo info_atomo;
-TNo *simbolo_inicial = NULL;
 
 // SINTATICO - prototipacao de funcao
 void program();
@@ -118,6 +117,11 @@ void consome( TAtomo atomo );
 // FIM DECLARACOES SINTATICO
 
 // INICIO DA FUNCOES DO SEMANTICO (Tabela de simbolos)
+
+// Variaveis globais do semantico
+TNo *simbolo_inicial = NULL;
+int rotulo = 0;
+
 int inserir_simbolo (char *ID){
     if (simbolo_inicial == NULL){
         TNo *inserido = (TNo*)malloc(sizeof(TNo));
@@ -169,8 +173,6 @@ void imprimir_tabela() {
         atual = (*atual).prox;
     }
 }
-
-int rotulo = 0;
 
 int proximo_rotulo(){
     rotulo++;
