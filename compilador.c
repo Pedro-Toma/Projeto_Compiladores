@@ -54,6 +54,8 @@ typedef enum{
     COMMENT
 } TAtomo;
 
+// tipo de dado para atomos
+
 typedef struct{
     TAtomo atomo;
     int linha;
@@ -61,6 +63,14 @@ typedef struct{
     char caracter_const;
     int numero_const;
 } TInfoAtomo;
+
+// tipo de dado para armazenar nos da lista encadeada
+
+typedef struct _TNo{
+    char ID[16];
+    int endereco;
+    struct _TNo *prox;
+}TNo;
 
 // declaracao de variaveis globais
 char *strAtomo[]={"EOS","ERROR","VOID","MAIN","INT","CHAR","ID","READINT",
@@ -83,6 +93,7 @@ TInfoAtomo reconhece_terminais();
 // variavel global
 TAtomo lookahead;
 TInfoAtomo info_atomo;
+TNo *simbolo_inicial = NULL;
 
 // SINTATICO - prototipacao de funcao
 void program();
@@ -106,6 +117,68 @@ void consome( TAtomo atomo );
 
 // FIM DECLARACOES SINTATICO
 
+// INICIO DA FUNCOES DO SEMANTICO (Tabela de simbolos)
+int inserir_simbolo (char *ID){
+    if (simbolo_inicial == NULL){
+        TNo *inserido = (TNo*)malloc(sizeof(TNo));
+        strncpy((*inserido).ID, ID, 16);
+        (*inserido).prox = NULL;
+        (*inserido).endereco = 0;
+        simbolo_inicial = inserido;
+        return 0;
+    } else {
+        TNo *atual = simbolo_inicial;
+        TNo *anterior = NULL;
+        int endereco = 0;
+        while (atual != NULL){
+            if (strcmp((*atual).ID,ID) == 0){
+                printf("Erro semantico: ID '%s' duplicado ",ID);
+                exit(1);
+            }
+            anterior = atual;
+            atual = (*atual).prox;
+            endereco++;
+        }
+        TNo *inserido = (TNo*)malloc(sizeof(TNo));;
+        strncpy((*inserido).ID, ID, 16);
+        (*inserido).prox = NULL;
+        (*inserido).endereco = endereco;
+        (*anterior).prox = inserido;
+        return 0;
+    }
+}
+
+int buscar_simbolo (char *ID){
+    TNo *atual = simbolo_inicial;
+    while (atual != NULL){
+        if (strcmp((*atual).ID,ID) == 0){
+            return (*atual).endereco;
+        }
+        atual = (*atual).prox;
+    }
+    printf("Erro semantico: ID '%s' nao existe", ID);
+    exit(1);
+}
+
+void imprimir_tabela() {
+    TNo *atual = simbolo_inicial;
+    printf("TABELA DE SIMBOLOS\n");
+
+    while (atual != NULL) {
+        printf("%-10s | Endereco: %d\n", (*atual).ID, (*atual).endereco);
+        atual = (*atual).prox;
+    }
+}
+
+int rotulo = 0;
+
+int proximo_rotulo(){
+    rotulo++;
+    return rotulo;
+}
+
+// FIM DA FUNCOES DO SEMANTICO (Tabela de simbolos)
+
 // DECLARACAO FUNCAO MAIN (LEITURA DE ARQUIVO)
 char* lerArquivo(char nome_arquivo[100]);
 
@@ -124,9 +197,9 @@ int main(int argc, char *argv[]){
 
     consome(EOS); // consome fim do arquivo
 
-    printf("\n");
+    // printf("\n");
 
-    printf("%d linhas analisadas, programa sintaticamente correto\n", contaLinha);
+    // printf("%d linhas analisadas, programa sintaticamente correto\n", contaLinha);
     return 0;
 }
 
@@ -152,7 +225,7 @@ TInfoAtomo obter_atomo(){
     } else if(*entrada == '/' && *(entrada+1) == '/'){
         info_atomo.atomo = COMMENT;
         info_atomo.linha = contaLinha;
-        printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
+        // printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
         entrada +=2;
 
         // loop para consumir todo comentario
@@ -165,7 +238,7 @@ TInfoAtomo obter_atomo(){
     } else if(*entrada == '/' && *(entrada+1) == '*'){
         info_atomo.atomo = COMMENT; 
         info_atomo.linha = contaLinha;
-        printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
+        // printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
         entrada += 2;
         // consome atomos ate o fim do comentario */
         while (!(*entrada == '*' && *(entrada+1) == '/')){
@@ -178,8 +251,8 @@ TInfoAtomo obter_atomo(){
     // reconhece palavras reservadas e identificadores
     } else if(isalpha(*entrada)){
         info_atomo = reconhece_reserv_id();
-    // reconhece constantes INTCONST e CHARCONST
-    } else if(*entrada == '\'' || *entrada == '0'){
+    // reconhece constantes INTCONST
+    } else if(*entrada == '0' && *(entrada+1) == 'x'){
         info_atomo = reconhece_const();
     // reconhece terminais da gramatica
     } else{
@@ -338,7 +411,6 @@ q2:
     strncpy(info_reserv_id.atributo_ID,ini_num,tamanho);
     info_reserv_id.atributo_ID[tamanho] = '\0'; // insere '\0' ao final da palavra
     info_reserv_id.atomo = ID;
-    
     return info_reserv_id;
 }
 
@@ -348,68 +420,67 @@ TInfoAtomo reconhece_const(){
     char *ini_num;
     char hexa[16];
     // verifica se eh um CHARCONST 
-    if(*entrada == '\'' && isascii(*(entrada+1)) && *(entrada+2) == '\''){
-        info_id.atomo = CHARCONST;
-        info_id.caracter_const = *(entrada+1);
-        entrada += 3;
-    // verifica se eh um INTCONST (hexadecimal)
-    } if (*entrada == '0' && *(entrada+1) == 'x'){
-        entrada += 2;
-        // se nao for A,B,C,D,E,F, digito retorna erro
-        if (*entrada == 'A' ||
+    // if(*entrada == '\'' && isascii(*(entrada+1)) && *(entrada+2) == '\''){
+    //    info_id.atomo = CHARCONST;
+    //    info_id.caracter_const = *(entrada+1);
+    //    entrada += 3;
+    // verifica se eh um INTCONST (hexadecimal)} 
+    // if (*entrada == '0' && *(entrada+1) == 'x'){
+    entrada += 2;
+    // se nao for A,B,C,D,E,F, digito retorna erro
+    if (*entrada == 'A' ||
+        *entrada == 'B' ||
+        *entrada == 'C' ||
+        *entrada == 'D' ||
+        *entrada == 'E' ||
+        *entrada == 'F' ||
+        isdigit(*entrada)){
+        ini_num = entrada;
+        entrada++;
+        int posicao = 0; // verifica posicao para calculo posterior
+        info_id.atomo = INTCONST;
+        while(*entrada == 'A' ||
             *entrada == 'B' ||
             *entrada == 'C' ||
             *entrada == 'D' ||
             *entrada == 'E' ||
             *entrada == 'F' ||
             isdigit(*entrada)){
-            ini_num = entrada;
             entrada++;
-            int posicao = 0; // verifica posicao para calculo posterior
-            info_id.atomo = INTCONST;
-            while(*entrada == 'A' ||
-                *entrada == 'B' ||
-                *entrada == 'C' ||
-                *entrada == 'D' ||
-                *entrada == 'E' ||
-                *entrada == 'F' ||
-                isdigit(*entrada)){
-                entrada++;
-                posicao++;
-            }
+            posicao++;
+        }
 
-            // pega constante INTCONST
-            int tamanho = entrada - ini_num;
-            strncpy(hexa,ini_num,tamanho);
-            hexa[tamanho]='\0';
-            int i = 0;
-            int decimal = 0;
-            int representacao;
-            // verfica letra e sua representacao
-            while(tamanho > i){
-                if (hexa[i] == 'A'){
-                    representacao = 10;
-                } else if (hexa[i] == 'B'){
-                    representacao = 11;
-                } else if (hexa[i] == 'C'){
-                    representacao = 12;
-                } else if (hexa[i] == 'D'){
-                    representacao = 13;
-                } else if (hexa[i] == 'E'){
-                    representacao = 14;
-                } else if (hexa[i] == 'F'){
-                    representacao = 15;
-                } else {
-                    representacao = hexa[i] - '0'; // subtrai ASCII de hexa[i] por ASCII de '0' para obter número
-                }
-                // calcula decimal
-                decimal += representacao * pow(16,posicao);
-                i++;
-                posicao--;
+        // pega constante INTCONST
+        int tamanho = entrada - ini_num;
+        strncpy(hexa,ini_num,tamanho);
+        hexa[tamanho]='\0';
+        int i = 0;
+        int decimal = 0;
+        int representacao;
+        // verfica letra e sua representacao
+        while(tamanho > i){
+            if (hexa[i] == 'A'){
+                representacao = 10;
+            } else if (hexa[i] == 'B'){
+                representacao = 11;
+            } else if (hexa[i] == 'C'){
+                representacao = 12;
+            } else if (hexa[i] == 'D'){
+                representacao = 13;
+            } else if (hexa[i] == 'E'){
+                representacao = 14;
+            } else if (hexa[i] == 'F'){
+                representacao = 15;
+            } else {
+                representacao = hexa[i] - '0'; // subtrai ASCII de hexa[i] por ASCII de '0' para obter número
             }
-            info_id.numero_const = decimal;
-        }   
-    }
+            // calcula decimal
+            decimal += representacao * pow(16,posicao);
+            i++;
+            posicao--;
+        }
+        info_id.numero_const = decimal;
+    }   
     return info_id;
 }
 
@@ -481,12 +552,15 @@ TInfoAtomo reconhece_terminais(){
 
 // <program> ::= void main ‘(‘ void ‘)’ <compound_stmt>
 void program(){
+    printf("\tINPP\n");
     consome(VOID);
     consome(MAIN);
     consome(OPEN_PAR);
     consome(VOID);
     consome(CLOSE_PAR);
     compound_stmt();
+    printf("\tPARA\n\n");
+    imprimir_tabela();
 }
 
 // <compound_stmt> ::= ‘{‘ <var_decl> { <stmt> } ‘}’
@@ -525,18 +599,24 @@ void type_specifier(){
 // <var_decl_list> ::= <variable_id> { ‘,’ <variable_id> }
 void var_decl_list(){
     variable_id(); // identificador
+    int qtd_variaveis = 1;
     while(lookahead == COMMA){
         consome(COMMA);
         variable_id();
+        qtd_variaveis++;
     }
+    printf("\tAMEM %d\n", qtd_variaveis);
 }
 
 // <variable_id> ::= id [ ‘=’ <expr> ]
 void variable_id(){
+    inserir_simbolo(info_atomo.atributo_ID);
+    int endereco = buscar_simbolo(info_atomo.atributo_ID);
     consome(ID);
     if (lookahead == ATTRIBUTION){
         consome(ATTRIBUTION);
         expr();
+        printf("\tARMZ %d\n", endereco);
     }
 }
 
@@ -557,8 +637,11 @@ void stmt(){
     } else if (lookahead == WHILE){
         while_stmt();
     } else if (lookahead == READINT){
+        printf("\tLEIT\n");
         consome(READINT);
         consome(OPEN_PAR);
+        int endereco = buscar_simbolo(info_atomo.atributo_ID);
+        printf("\tARMZ %d\n", endereco);
         consome(ID);
         consome(CLOSE_PAR);
         consome(SEMICOLON);
@@ -568,37 +651,52 @@ void stmt(){
         expr();
         consome(CLOSE_PAR);
         consome(SEMICOLON);
+        printf("\tIMPR\n");
     }
 }
 
 // <assig_stmt> ::= id ‘=’ <expr> ‘;’ 
 void assig_stmt(){
+    int endereco = buscar_simbolo(info_atomo.atributo_ID);
     consome(ID);
     consome(ATTRIBUTION);
     expr();
     consome(SEMICOLON);
+    printf("\tARMZ %d\n", endereco);
 }
 
 // <cond_stmt> ::= if ‘(‘ <expr> ‘)’ <stmt> [ else <stmt> ]
 void cond_stmt(){
+    int L1 = proximo_rotulo();
+    int L2 = proximo_rotulo();
     consome(IF);
     consome(OPEN_PAR);
     expr();
     consome(CLOSE_PAR);
+    printf("\tDSVF L%d\n", L1);
     stmt();
+    printf("\tDSVS L%d\n", L2);
+    printf("L%d:\tNADA\n", L1);
     if (lookahead == ELSE){
         consome(ELSE);
         stmt();
     }
+    printf("L%d:\tNADA\n", L2);
 }
 
 // <while_stmt> ::= while ‘(‘ <expr> ‘)’ <stmt>
 void while_stmt(){
+    int L1 = proximo_rotulo();
+    int L2 = proximo_rotulo();
+    printf("L%d:\tNADA\n", L1);
     consome(WHILE);
     consome(OPEN_PAR);
     expr();
     consome(CLOSE_PAR);
+    printf("\tDSVF L%d\n", L2);
     stmt();
+    printf("\tDSVS L%d\n", L1);
+    printf("L%d:\tNADA\n", L2);
 }
 
 // <expr> ::= <conjunction> { ‘||’ <conjunction> }
@@ -607,6 +705,7 @@ void expr(){
     while(lookahead == OR){
         consome(OR);
         conjunction();
+        printf("\tDISJ\n");
     }
 }
 
@@ -616,6 +715,7 @@ void conjunction(){
     while(lookahead == AND){
         consome(AND);
         comparison();
+        printf("\tCONJ\n");
     }
 }
 
@@ -628,8 +728,22 @@ void comparison(){
         lookahead == DIFFERENT     ||
         lookahead == LESS          ||
         lookahead == LESS_EQUAL){
+        char comp = lookahead;
         relation();
         sum();
+        if (comp == GREATER){
+            printf("\tCMMA\n");
+        } else if (comp == GREATER_EQUAL){
+            printf("\tCMAG\n");
+        } else if (comp == EQUAL){
+            printf("\tCMIG\n");
+        } else if (comp == DIFFERENT){
+            printf("\tCMDG\n");
+        } else if (comp == LESS){
+            printf("\tCMME\n");
+        } else {
+            printf("\tCMEG\n");
+        }
     }
 }
 
@@ -650,8 +764,14 @@ void relation(){
 void sum(){
     term();
     while(lookahead == PLUS || lookahead == MINUS){
+        char op = lookahead;
         consome(lookahead);
         term();
+        if (op == PLUS){
+            printf("\tSOMA\n");
+        } else{
+            printf("\tSUBT\n");
+        }
     }
 }
 
@@ -659,16 +779,25 @@ void sum(){
 void term(){
     factor();
     while(lookahead == MULT || lookahead == DIV){
+        char op = lookahead;
         consome(lookahead);
         factor();
+        if (op == MULT){
+            printf("\tMULT\n");
+        } else{
+            printf("\tDIVI\n");
+        }
     }
 }
 
-// <factor> ::= intconst | charconst | id | ‘(‘ <expr> ‘)’
+// <factor> ::= intconst | id | ‘(‘ <expr> ‘)’
 void factor(){
-    if (lookahead == INTCONST ||
-        lookahead == CHARCONST ||
-        lookahead == ID){
+    if (lookahead == INTCONST) {
+        printf("\tCRCT %d\n", info_atomo.numero_const);
+        consome(lookahead);
+    } else if(lookahead == ID){
+        int endereco = buscar_simbolo(info_atomo.atributo_ID);
+        printf("\tCRVL %d\n", endereco);
         consome(lookahead);
     }else{
         consome(OPEN_PAR);
@@ -688,15 +817,15 @@ void consome( TAtomo atomo ){
     if( lookahead == atomo ){
         info_atomo.linha = contaLinha;
         // print para variaveis com valores adicionais
-        if (lookahead == ID){
-            printf("# %3d: %s | %s\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.atributo_ID);
-        } else if (lookahead == INTCONST){
-            printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.numero_const);
-        } else if (lookahead == CHARCONST){
-            printf("# %3d: %s | %c\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.caracter_const);
-        } else{
-            printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
-        }
+        // if (lookahead == ID){
+        //   printf("# %3d: %s | %s\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.atributo_ID);
+        // } else if (lookahead == INTCONST){
+        //     printf("# %3d: %s | %d\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.numero_const);
+        // } else if (lookahead == CHARCONST){
+        //     printf("# %3d: %s | %c\n", info_atomo.linha,strAtomo[info_atomo.atomo],info_atomo.caracter_const);
+        // } else{
+        //     printf("# %3d: %s\n", info_atomo.linha,strAtomo[info_atomo.atomo]);
+        // }
         // obtem proximo atomo e atualiza lookahead
         info_atomo = obter_atomo();
         lookahead = info_atomo.atomo;
